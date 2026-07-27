@@ -162,3 +162,21 @@ export const START = { x: 470, y: 118, z: 430, yaw: 0.829, pitch: -0.155 };
  */
 export const DAY_HOUR = 16.2;
 export const NIGHT_HOUR = 21.4;
+
+/**
+ * The moon is placed by eye rather than by the ephemeris: low in the sky, on
+ * the bearing of Marina Bay Sands, so it sits over the towers in the view the
+ * model opens on. The real moon for a given date would be wherever it happened
+ * to be, usually overhead and out of frame.
+ */
+export const MOON = { bearing: [590, 368], altitudeDeg: 17 };
+
+/** Spectra, the light and water show on the bay at Marina Bay Sands. */
+export const FOUNTAIN = {
+  target: [505, 292],   // in the bay off the MBS Event Plaza
+  jets: 30,
+  spread: 105,          // metres across the arc of nozzles
+  maxHeight: 26,
+  beams: 8,
+  palette: [0xff2f6e, 0x9b4bff, 0x2f8bff, 0x30e0c0, 0xffc24a, 0xff5a2f],
+};

@@ -102,9 +102,9 @@ export function buildTrees(city, hf, index, quality, uniforms) {
   frondMat.name = 'frond';
   // Foliage catches street and shopfront light after dark.
   if (uniforms) {
-    foliageNightGlow(leafMat, uniforms, 0.10);
-    foliageNightGlow(frondMat, uniforms, 0.10);
-    foliageNightGlow(barkMat, uniforms, 0.05);
+    foliageNightGlow(leafMat, uniforms, 0.62, 0.7);
+    foliageNightGlow(frondMat, uniforms, 0.62, 0.7);
+    foliageNightGlow(barkMat, uniforms, 0.12, 0.1);
   }
 
   const leafBase = new THREE.Color();

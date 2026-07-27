@@ -12,7 +12,7 @@ over it, walk it, or run it, and switch between day and night at any point on a
 
 ![Marina Bay skyline](shots/skyline-day.png)
 ![The same view at night](shots/skyline-night.png)
-![Marina Bay after dark](shots/bay-at-night.png)
+![Moonrise over Marina Bay Sands, with the light and water show on the bay](shots/moon-over-mbs.png)
 
 ## Running it
 
@@ -71,6 +71,10 @@ Everything below is real OSM data for the 2 km × 2 km box
   place labels and the "nearest" readout.
 - Moving traffic on the real carriageways (driving on the left, in lane, over the
   bridge decks) and bumboats working loops on the bay.
+- A light and water show on the bay off the Marina Bay Sands Event Plaza: an arc
+  of thirty nozzles throwing water on overlapping cycles with a swell running
+  along the arc, lit from below in cycling colours after dark, with searchlight
+  beams sweeping out over the water.
 
 Four things OSM does not describe well enough to extrude are modelled by hand:
 **the Merlion** (OSM has the park and a POI node, no statue), **the Supertrees**
@@ -93,6 +97,15 @@ A few decisions worth knowing about if you change things:
   compresses all of that to white, so no amount of scattering tuning produces a
   blue sky — only a brighter white one. Bringing the output back into the tone
   mapper's colourful range is what makes it read blue.
+- **Clouds are projected onto a dome, not modelled as a plane.** The noise is
+  sampled at `dir.xz / dir.y` — the intersection of the view ray with a flat
+  layer at unit height — so the deck keeps its perspective and compresses toward
+  the horizon while being drawn at infinity. A real plane at 1.5 km is only
+  crossed several kilometres out when you look near the horizon, where fog
+  erases it, which left the sky looking clear from every normal camera position.
+- **The moon is placed by eye, not by the ephemeris.** It sits low on the bearing
+  of Marina Bay Sands so it rises over the towers; the real moon for a given date
+  would usually be overhead and out of frame.
 - **The night sky is a gradient dome laid over the atmosphere model.** With the
   sun 50 degrees below the horizon there is nothing left to scatter and the
   model renders near-black, which is accurate but not what a clear tropical

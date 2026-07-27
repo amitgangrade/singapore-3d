@@ -213,9 +213,9 @@ export function roadMaterial(uniforms) {
      * than by high-pressure sodium. Cheaper and steadier than the hundreds of
      * real point lights this stands in for.
      */
-    vec3 sodium = vec3(0.10, 0.062, 0.024);
-    vec3 spill  = vec3(0.045, 0.052, 0.070);
-    float pool = 0.75 + 0.25 * sin(vAUv.y * 0.196);   // ~32 m lamp spacing
+    vec3 sodium = vec3(0.26, 0.165, 0.068);
+    vec3 spill  = vec3(0.125, 0.140, 0.180);
+    float pool = 0.66 + 0.34 * sin(vAUv.y * 0.196);   // ~32 m lamp spacing
     totalEmissiveRadiance += mix(spill, sodium * pool, vMark) * uNight;
   `;
   return patch(mat, uniforms, vertexHead, vertexBody, fragHead, fragBody);
@@ -244,8 +244,10 @@ export function surfaceMaterial(uniforms, { roughness = 0.9, metalness = 0, name
     float m = h21(floor(vAUv * 0.34)) * 0.5 + h21(floor(vAUv * 1.3)) * 0.5;
     diffuseColor.rgb *= 0.82 + 0.34 * m;
     diffuseColor.rgb *= mix(1.0, 0.82, uNight);
-    // Ground catches a little of the city's ambient glow at night.
-    totalEmissiveRadiance += vec3(0.030, 0.034, 0.046) * uNight;
+    // Ground catches the city's ambient glow at night; planted ground keeps its
+    // colour rather than washing to grey.
+    vec3 groundGlow = mix(vec3(0.075, 0.082, 0.105), diffuseColor.rgb * 1.4, 0.45);
+    totalEmissiveRadiance += groundGlow * uNight;
   `;
   return patch(mat, uniforms, vertexHead, vertexBody, fragHead, fragBody);
 }
@@ -264,10 +266,14 @@ export function structureMaterial(uniforms) {
 }
 
 /**
- * Foliage lit by the city rather than by the sun: a soft glow after dark so the
- * street trees and park canopies do not read as black cutouts at night.
+ * Foliage lit by the city rather than by the sun.
+ *
+ * The canopy tints are deliberately dark so trees read correctly in daylight,
+ * but scaling those directly leaves them near-black at night. The glow is
+ * therefore pushed toward a saturated green, so park planting and street trees
+ * stay recognisably green after dark instead of becoming grey silhouettes.
  */
-export function foliageNightGlow(material, uniforms, strength = 0.09) {
+export function foliageNightGlow(material, uniforms, strength = 0.09, green = 0.65) {
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.fragmentShader = shader.fragmentShader
@@ -275,10 +281,11 @@ export function foliageNightGlow(material, uniforms, strength = 0.09) {
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
-         totalEmissiveRadiance += diffuseColor.rgb * uNight * ${strength.toFixed(3)};`
+         vec3 leafGlow = mix(diffuseColor.rgb, vec3(0.16, 0.62, 0.24), ${green.toFixed(3)});
+         totalEmissiveRadiance += leafGlow * uNight * ${strength.toFixed(3)};`
       );
   };
-  material.customProgramCacheKey = () => `foliage-${strength}`;
+  material.customProgramCacheKey = () => `foliage-${strength}-${green}`;
   return material;
 }
 

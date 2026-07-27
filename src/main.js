@@ -14,6 +14,7 @@ import { buildBuildings } from './world/buildings.js';
 import { buildTrees } from './world/nature.js';
 import { buildStreetLights } from './world/lights.js';
 import { buildTraffic } from './world/traffic.js';
+import { buildFountainShow } from './world/fountain.js';
 import { buildLandmarks, REPLACED_BY_LANDMARK } from './world/landmarks.js';
 import { Controller } from './controls/controller.js';
 import { Hud } from './ui/hud.js';
@@ -138,6 +139,10 @@ async function boot() {
   world.traffic = await step(0.87, 'releasing traffic and bumboats…',
     () => buildTraffic(world.roads.carPaths, hf, uniforms, quality));
   scene.add(world.traffic.group);
+
+  world.fountain = await step(0.90, 'starting the show on the bay…',
+    () => buildFountainShow(hf, uniforms));
+  scene.add(world.fountain.group);
 
   world.landmarks = await step(0.92, 'raising the Merlion and the Supertrees…',
     () => buildLandmarks(city, hf, uniforms, world.roads.bridgeDecks, replaced));
@@ -371,6 +376,7 @@ function animate() {
   updateShadow();
   world.water.update(dt, sky.lightDir, sky.look);
   world.traffic.update(dt);
+  world.fountain.update(dt, sky.nightT);
   world.landmarks.update(dt);
 
   labels.update(camera, window.innerWidth, window.innerHeight);

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
-import { MERLION, PALETTE } from '../config.js';
+import { MERLION, PALETTE, MOON } from '../config.js';
 import { clamp, lerp, smoothstep, rng } from '../core/util.js';
 
 /**
@@ -16,7 +16,18 @@ import { clamp, lerp, smoothstep, rng } from '../core/util.js';
 const DEG = Math.PI / 180;
 const LAT = MERLION.lat * DEG;
 const DECLINATION = 10 * DEG;      // a bright northern-summer day
-const MOON_DECL = -8 * DEG;
+
+/** Fixed moon direction: low, on the bearing of Marina Bay Sands. */
+const MOON_DIR = (() => {
+  const [bx, bz] = MOON.bearing;
+  const len = Math.hypot(bx, bz) || 1;
+  const alt = MOON.altitudeDeg * DEG;
+  return new THREE.Vector3(
+    (bx / len) * Math.cos(alt),
+    Math.sin(alt),
+    (bz / len) * Math.cos(alt)
+  ).normalize();
+})();
 
 /** Sun (or moon) direction in world axes for a given decimal hour. */
 function bodyDirection(hours, declination, out) {
@@ -45,10 +56,10 @@ export class SkySystem {
      * the output back into the tone mapper's colourful range is what actually
      * makes the daytime sky read blue.
      */
-    this.skyGain = { value: 0.22 };
-    this.skySat = { value: 1.55 };
-    this.skyBias = { value: 0.34 };
-    this.skyTint = { value: new THREE.Color(0.62, 0.82, 1.18) };
+    this.skyGain = { value: 0.20 };
+    this.skySat = { value: 1.95 };
+    this.skyBias = { value: 0.46 };
+    this.skyTint = { value: new THREE.Color(0.42, 0.70, 1.30) };
     this.sky.material.onBeforeCompile = (shader) => {
       shader.uniforms.uSkyGain = this.skyGain;
       shader.uniforms.uSkySat = this.skySat;
@@ -141,6 +152,103 @@ export class SkySystem {
     this.nightDome.frustumCulled = false;
     scene.add(this.nightDome);
 
+    /*
+     * Cloud layer.
+     *
+     * Projected onto a dome rather than modelled as a plane in the world. The
+     * fbm is sampled at `dir.xz / dir.y`, which is the intersection of the view
+     * ray with a flat layer at unit height — so it has the perspective of a real
+     * cloud deck, compressing toward the horizon, but is drawn at infinity and
+     * stays visible at every viewing angle. A world-space plane only intersects
+     * a near-horizontal view several kilometres out, where fog erases it, which
+     * left the sky looking clear from every normal camera position.
+     */
+    this.cloudUniforms = {
+      uTime: this.uTime,
+      uOpacity: { value: 0.9 },
+      uCoverage: { value: 0.35 },
+      uLit: { value: new THREE.Color(0xffffff) },
+      uShadow: { value: new THREE.Color(0x93a6bd) },
+      uHorizon: { value: new THREE.Color(0xaecfea) },
+      uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+    };
+    this.clouds = new THREE.Mesh(
+      new THREE.SphereGeometry(6000, 32, 20),
+      new THREE.ShaderMaterial({
+        uniforms: this.cloudUniforms,
+        side: THREE.BackSide,
+        transparent: true,
+        depthWrite: false,
+        vertexShader: /* glsl */ `
+          varying vec3 vDir;
+          void main() {
+            vDir = normalize(position);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform float uTime;
+          uniform float uOpacity;
+          uniform float uCoverage;
+          uniform vec3 uLit;
+          uniform vec3 uShadow;
+          uniform vec3 uHorizon;
+          uniform vec3 uSunDir;
+          varying vec3 vDir;
+
+          float hash(vec2 p) {
+            p = fract(p * vec2(123.34, 456.21));
+            p += dot(p, p + 45.32);
+            return fract(p.x * p.y);
+          }
+          float noise(vec2 p) {
+            vec2 i = floor(p), f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+                       mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+          }
+          float fbm(vec2 p) {
+            float v = 0.0, a = 0.5;
+            for (int i = 0; i < 5; i++) {
+              v += a * noise(p);
+              p = p * 2.03 + vec2(17.3, 9.1);
+              a *= 0.5;
+            }
+            return v;
+          }
+
+          void main() {
+            vec3 d = normalize(vDir);
+            if (d.y < 0.012) discard;
+
+            // Ray/flat-layer intersection, so the deck recedes with perspective.
+            vec2 uv = d.xz / d.y * 0.9;
+            vec2 drift = vec2(uTime * 0.0035, uTime * 0.0016);
+            float n = fbm(uv + drift);
+            n = mix(n, fbm(uv * 0.42 - drift * 0.7), 0.4);
+
+            float cov = smoothstep(uCoverage, uCoverage + 0.24, n);
+            if (cov < 0.004) discard;
+
+            float thick = smoothstep(uCoverage, uCoverage + 0.4, n);
+            vec3 col = mix(uShadow, uLit, thick);
+            // Silver lining on the sun side.
+            float sun = max(dot(d, normalize(uSunDir)), 0.0);
+            col += vec3(0.35, 0.30, 0.24) * pow(sun, 8.0) * (1.0 - thick);
+
+            // Fade into the haze as the deck approaches the horizon.
+            float horizon = smoothstep(0.012, 0.16, d.y);
+            col = mix(uHorizon, col, horizon);
+            gl_FragColor = vec4(col, cov * uOpacity * horizon);
+          }
+        `,
+      })
+    );
+    this.clouds.name = 'clouds';
+    this.clouds.renderOrder = -2;
+    this.clouds.frustumCulled = false;
+    scene.add(this.clouds);
+
     // ---- stars
     const starCount = 4200;
     const random = rng(90210);
@@ -228,7 +336,8 @@ export class SkySystem {
    */
   setTime(hours) {
     bodyDirection(hours, DECLINATION, this.sunDir);
-    bodyDirection((hours + 12) % 24, MOON_DECL, this.moonDir);
+    // Moon placed by eye over Marina Bay Sands rather than by the ephemeris.
+    this.moonDir.copy(MOON_DIR);
 
     // Night fraction from the sun's altitude: full day above +5 degrees, full
     // night below -7. Near the equator this transition is genuinely fast.
@@ -275,6 +384,14 @@ export class SkySystem {
     this.nightUniforms.uMoonDir.value.copy(this.moonDir);
     this.nightDome.visible = this.nightUniforms.uOpacity.value > 0.005;
 
+    // Clouds thin out and darken after dark so the stars come through.
+    this.cloudUniforms.uOpacity.value = lerp(0.85, 0.2, t);
+    this.cloudUniforms.uCoverage.value = lerp(0.35, 0.55, t);
+    this.cloudUniforms.uLit.value.set(mixHex(0xffffff, 0x2a3a58, t));
+    this.cloudUniforms.uShadow.value.set(mixHex(0x9fb0c4, 0x141d30, t));
+    this.cloudUniforms.uHorizon.value.set(L.fogColor);
+    this.cloudUniforms.uSunDir.value.copy(this.sunDir);
+
     this.starMat.opacity = clamp((t - 0.2) / 0.5, 0, 1);
     this.stars.visible = this.starMat.opacity > 0.01;
     this.moonMat.opacity = clamp((t - 0.12) / 0.35, 0, 1);
@@ -290,6 +407,7 @@ export class SkySystem {
     this.sky.position.copy(camera.position);
     this.nightDome.position.copy(camera.position);
     this.stars.position.copy(camera.position);
+    this.clouds.position.copy(camera.position);
     this.moon.position.copy(this.moonDir).multiplyScalar(4700).add(camera.position);
   }
 
