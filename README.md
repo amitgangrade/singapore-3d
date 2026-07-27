@@ -1,5 +1,9 @@
 # Singapore — 4 km² around the Merlion
 
+**▶ [Explore it live](https://amitgangrade.github.io/singapore-3d/)** — click the
+canvas to capture the mouse, **F** to switch between flying and walking, **T** for
+day/night.
+
 An explorable 3D model of central Singapore. Two kilometres square, centred on the
 Merlion, built from real OpenStreetMap geometry: every building footprint and
 height, every road, bridge, park, river and quay is the real one. You can fly
