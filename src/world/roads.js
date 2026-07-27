@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ROAD_STYLE, WATER_Y } from '../config.js';
-import { roadMaterial, structureMaterial } from '../render/materials.js';
+import { roadMaterial, structureMaterial, emissiveMaterial } from '../render/materials.js';
 import { BoxBatch, rgb } from './boxbatch.js';
 import { simplify, polylineLength, clamp, hash01, openRing, bboxOf, pointInRing } from '../core/util.js';
 
@@ -13,6 +13,20 @@ import { simplify, polylineLength, clamp, hash01, openRing, bboxOf, pointInRing 
  * the deck height is stamped into the heightfield so you can actually walk
  * across the river on foot.
  */
+
+/** Bridges are lit in one of three colours after dark. */
+const BRIDGE_GLOW = [0xff2f4e, 0xa54bff, 0x2f7bff];
+
+/** Stable seed from a bridge name, so both carriageways get the same colour. */
+function nameSeed(name) {
+  if (!name) return null;
+  let h = 2166136261;
+  for (let i = 0; i < name.length; i++) {
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
 
 /** Per-class render height above the ground, to stop junctions z-fighting. */
 const Z_ORDER = {
@@ -134,6 +148,7 @@ function smoothHeights(ys, passes) {
 export function buildRoads(city, hf, uniforms, quality) {
   const road = new RibbonBatch();
   const structure = new BoxBatch();
+  const bridgeGlow = new BoxBatch();
   const lamps = [];
   const carPaths = [];
   const bridgeDecks = [];   // handed to the landmark builder (Helix Bridge)
@@ -156,6 +171,7 @@ export function buildRoads(city, hf, uniforms, quality) {
     const zo = Z_ORDER[r.c] ?? 0.07;
     const ys = new Array(n);
     const isBridge = !!r.b;
+    let waterVerts = 0;
 
     if (!isBridge) {
       for (let i = 0; i < n; i++) ys[i] = hf.at(pts[i * 2], pts[i * 2 + 1]) + zo;
@@ -173,7 +189,12 @@ export function buildRoads(city, hf, uniforms, quality) {
         const g = hf.at(x, z);
         let y = y0 + (y1 - y0) * t;
         y = Math.max(y, g + 0.55);
-        if (hf.landAt(x, z) < 0.4) y = Math.max(y, WATER_Y + 5.2);   // clear the boats
+        const land = hf.landAt(x, z);
+        if (land < 0.4) y = Math.max(y, WATER_Y + 5.2);   // clear the boats
+        // Counted with a stricter threshold than the clearance test above: the
+        // shoreline mask is blurred, so 0.4 also catches viaducts merely
+        // running along the quay.
+        if (land < 0.22) waterVerts++;
         if (layer >= 1) y = Math.max(y, g + 5.4 * layer);
         ys[i] = y;
       }
@@ -186,12 +207,42 @@ export function buildRoads(city, hf, uniforms, quality) {
     // ---- bridge structure and walkable deck
     if (isBridge) {
       const { left, right } = offsets(pts, r.w / 2);
+      /*
+       * Each crossing is lit in one colour along its whole length, so a bridge
+       * reads as a single object at night. The colour is keyed off the name so
+       * both carriageways of a divided bridge match.
+       *
+       * Only spans over water are lit. `bridge` in OSM covers every road-over-
+       * road flyover too, and the Marina Coastal interchange alone has dozens;
+       * lighting those buries the skyline in neon lines. Restricting to water
+       * crossings gives exactly the bridges you would expect to be lit — the
+       * Helix, Jubilee, Esplanade, Anderson, Cavenagh, Elgin and the rest of
+       * the Singapore River crossings.
+       */
+      const lit = waterVerts >= 3 && waterVerts / n >= 0.3;
+      const glowColour = BRIDGE_GLOW[
+        Math.floor(hash01(nameSeed(r.n) ?? ri * 2654435761) * BRIDGE_GLOW.length) % BRIDGE_GLOW.length
+      ];
       for (let i = 0; i < n - 1; i++) {
         // Parapets down both edges.
         structure.wall(left[i * 2], left[i * 2 + 1], left[(i + 1) * 2], left[(i + 1) * 2 + 1],
           ys[i], ys[i] + 1.05, 0.28, 0x9d9a94);
         structure.wall(right[i * 2], right[i * 2 + 1], right[(i + 1) * 2], right[(i + 1) * 2 + 1],
           ys[i], ys[i] + 1.05, 0.28, 0x9d9a94);
+        if (!lit) continue;
+        // Lit capping along the top of each parapet.
+        bridgeGlow.wall(left[i * 2], left[i * 2 + 1], left[(i + 1) * 2], left[(i + 1) * 2 + 1],
+          ys[i] + 1.05, ys[i] + 1.24, 0.32, glowColour);
+        bridgeGlow.wall(right[i * 2], right[i * 2 + 1], right[(i + 1) * 2], right[(i + 1) * 2 + 1],
+          ys[i] + 1.05, ys[i] + 1.24, 0.32, glowColour);
+        // A recessed strip under the deck edge, which is what throws the colour
+        // down onto the water. Only worth it where there is water to catch it.
+        if (lit) {
+          bridgeGlow.wall(left[i * 2], left[i * 2 + 1], left[(i + 1) * 2], left[(i + 1) * 2 + 1],
+            ys[i] - 1.05, ys[i] - 0.86, 0.28, glowColour);
+          bridgeGlow.wall(right[i * 2], right[i * 2 + 1], right[(i + 1) * 2], right[(i + 1) * 2 + 1],
+            ys[i] - 1.05, ys[i] - 0.86, 0.28, glowColour);
+        }
       }
       // Pylons roughly every 30 m where the deck stands clear of the ground.
       let acc = 0;
@@ -290,6 +341,17 @@ export function buildRoads(city, hf, uniforms, quality) {
   rmesh.receiveShadow = true;
   rmesh.matrixAutoUpdate = false;
   group.add(rmesh);
+
+  if (bridgeGlow.count) {
+    const gmat = emissiveMaterial(uniforms, 0xffffff, {
+      strength: 2.6, dayVisible: 0.32, vertexColors: true,
+    });
+    materials.push(gmat);
+    const gmesh = new THREE.Mesh(bridgeGlow.toGeometry(), gmat);
+    gmesh.name = 'bridge-lighting';
+    gmesh.matrixAutoUpdate = false;
+    group.add(gmesh);
+  }
 
   if (structure.count) {
     const smat = structureMaterial(uniforms);

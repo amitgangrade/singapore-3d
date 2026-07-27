@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GREEN_STYLE, HALF } from '../config.js';
+import { foliageNightGlow } from '../render/materials.js';
 import { rng, scatterInRing, signedArea, clamp } from '../core/util.js';
 
 /**
@@ -51,7 +52,7 @@ function palmCrownGeometry() {
   return mergeGeometries(parts);
 }
 
-export function buildTrees(city, hf, index, quality) {
+export function buildTrees(city, hf, index, quality, uniforms) {
   const random = rng(20260726);
   const spots = [];   // {x, z, h, palm}
 
@@ -99,6 +100,12 @@ export function buildTrees(city, hf, index, quality) {
   barkMat.name = 'bark';
   leafMat.name = 'leaf';
   frondMat.name = 'frond';
+  // Foliage catches street and shopfront light after dark.
+  if (uniforms) {
+    foliageNightGlow(leafMat, uniforms, 0.10);
+    foliageNightGlow(frondMat, uniforms, 0.10);
+    foliageNightGlow(barkMat, uniforms, 0.05);
+  }
 
   const leafBase = new THREE.Color();
   const m = new THREE.Matrix4();

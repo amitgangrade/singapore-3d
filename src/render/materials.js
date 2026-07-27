@@ -204,10 +204,19 @@ export function roadMaterial(uniforms) {
     // Wet-look asphalt after dark: sharper highlights, slightly darker base.
     roughnessFactor = clamp(roughnessFactor * mix(1.0, 0.42, uNight), 0.04, 1.0);
     metalnessFactor = mix(metalnessFactor, 0.22, uNight);
-    diffuseColor.rgb *= mix(1.0, 0.72, uNight);
+    diffuseColor.rgb *= mix(1.0, 0.78, uNight);
 
-    // Sodium spill pooling under the street lamps.
-    totalEmissiveRadiance += vec3(0.09, 0.055, 0.02) * uNight * vMark;
+    /*
+     * Pavement picks up the surrounding light after dark. Carriageways get a
+     * sodium wash pooling under the street lamps; footways and plazas get a
+     * cooler, softer lift, since they are lit by shopfronts and bollards rather
+     * than by high-pressure sodium. Cheaper and steadier than the hundreds of
+     * real point lights this stands in for.
+     */
+    vec3 sodium = vec3(0.10, 0.062, 0.024);
+    vec3 spill  = vec3(0.045, 0.052, 0.070);
+    float pool = 0.75 + 0.25 * sin(vAUv.y * 0.196);   // ~32 m lamp spacing
+    totalEmissiveRadiance += mix(spill, sodium * pool, vMark) * uNight;
   `;
   return patch(mat, uniforms, vertexHead, vertexBody, fragHead, fragBody);
 }
@@ -234,7 +243,9 @@ export function surfaceMaterial(uniforms, { roughness = 0.9, metalness = 0, name
     // Mottled vegetation so lawns are not flat colour fields.
     float m = h21(floor(vAUv * 0.34)) * 0.5 + h21(floor(vAUv * 1.3)) * 0.5;
     diffuseColor.rgb *= 0.82 + 0.34 * m;
-    diffuseColor.rgb *= mix(1.0, 0.78, uNight);
+    diffuseColor.rgb *= mix(1.0, 0.82, uNight);
+    // Ground catches a little of the city's ambient glow at night.
+    totalEmissiveRadiance += vec3(0.030, 0.034, 0.046) * uNight;
   `;
   return patch(mat, uniforms, vertexHead, vertexBody, fragHead, fragBody);
 }
@@ -252,9 +263,34 @@ export function structureMaterial(uniforms) {
   return mat;
 }
 
-/** Emissive material used for lamps, aviation lights, neon. */
-export function emissiveMaterial(uniforms, color, { strength = 1, dayVisible = 0.15 } = {}) {
-  const mat = new THREE.MeshBasicMaterial({ color, toneMapped: true });
+/**
+ * Foliage lit by the city rather than by the sun: a soft glow after dark so the
+ * street trees and park canopies do not read as black cutouts at night.
+ */
+export function foliageNightGlow(material, uniforms, strength = 0.09) {
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uNight;')
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+         totalEmissiveRadiance += diffuseColor.rgb * uNight * ${strength.toFixed(3)};`
+      );
+  };
+  material.customProgramCacheKey = () => `foliage-${strength}`;
+  return material;
+}
+
+/**
+ * Emissive material used for lamps, aviation lights, neon and the bridge
+ * lighting. With `vertexColors` the hue comes from the geometry, so a single
+ * material can carry every bridge's colour.
+ */
+export function emissiveMaterial(uniforms, color, {
+  strength = 1, dayVisible = 0.15, vertexColors = false,
+} = {}) {
+  const mat = new THREE.MeshBasicMaterial({ color, toneMapped: true, vertexColors });
   mat.name = 'emissive';
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -266,7 +302,7 @@ export function emissiveMaterial(uniforms, color, { strength = 1, dayVisible = 0
         `diffuseColor.rgb *= mix(${dayVisible.toFixed(3)}, ${strength.toFixed(3)}, uNight);\n#include <opaque_fragment>`
       );
   };
-  mat.customProgramCacheKey = () => `emissive-${color}-${strength}`;
+  mat.customProgramCacheKey = () => `emissive-${color}-${strength}-${vertexColors}`;
   return mat;
 }
 

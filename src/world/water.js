@@ -148,7 +148,8 @@ export function buildWater(city, hf, uniforms, quality) {
       shader.uniforms.uNight = uniforms.uNight;
       shader.fragmentShader = `uniform float uNight;\n${shader.fragmentShader}`.replace(
         'vec3( 0.1 ) + reflectionSample * 0.9',
-        'vec3( 0.1 ) * ( 1.0 - uNight * 0.93 ) + reflectionSample * mix( 0.9, 0.3, uNight )'
+        'vec3( 0.1 ) * ( 1.0 - uNight * 0.9 ) + waterColor * uNight * 0.55 '
+        + '+ reflectionSample * mix( 0.9, 0.42, uNight )'
       );
     };
     waterMesh.material.needsUpdate = true;

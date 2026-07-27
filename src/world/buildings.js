@@ -68,6 +68,7 @@ function faceNormal(a, b, c, out) {
 }
 
 const _n = [0, 0, 0];
+const _tint = new THREE.Color();
 
 export function buildBuildings(city, hf, uniforms, onProgress) {
   const batches = new Map();
@@ -101,11 +102,25 @@ export function buildBuildings(city, hf, uniforms, onProgress) {
     const family = FACADES[b.f] ? b.f : 'concrete';
     const batch = batches.get(family);
 
-    // ---- per-building colour
-    const t = hash01(bi * 2654435761);
-    let tr = 0.86 + 0.3 * t;
-    let tg = 0.86 + 0.3 * hash01(bi * 40503 + 11);
-    let tb = 0.86 + 0.3 * hash01(bi * 69069 + 7);
+    /*
+     * Per-building colour.
+     *
+     * Saturation is scaled down with height: Singapore's low-rise really is
+     * colourful — the shophouse rows of Chinatown, Kampong Glam and Boat Quay
+     * are painted in pastels — while the towers are tinted glass and steel.
+     * Applying one saturation to everything makes either a drab city or a
+     * cartoon one. The tint is normalised against its own luminance so hue
+     * changes do not also change how bright the building reads.
+     */
+    const hue = hash01(bi * 2654435761);
+    const heightFade = clamp(1 - (b.h - 18) / 70, 0, 1);
+    const sat = (0.1 + 0.5 * hash01(bi * 7919 + 3)) * (0.18 + 0.82 * heightFade);
+    _tint.setHSL(hue, sat, 0.55);
+    const lum = Math.max(0.2126 * _tint.r + 0.7152 * _tint.g + 0.0722 * _tint.b, 1e-3);
+    const value = 0.84 + 0.32 * hash01(bi * 40503 + 11);
+    let tr = (_tint.r / lum) * value;
+    let tg = (_tint.g / lum) * value;
+    let tb = (_tint.b / lum) * value;
     if (b.c) {
       const c = new THREE.Color(b.c);
       const spec = new THREE.Color(FACADES[family].color);

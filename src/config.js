@@ -26,9 +26,11 @@ export const STEP_UP = 0.62;         // kerbs and low steps are walked over
 /** Day and night look. Everything in between is interpolated. */
 export const PALETTE = {
   day: {
-    turbidity: 4.2,
-    rayleigh: 1.35,
-    mieCoefficient: 0.006,
+    // Low turbidity (little haze) with high rayleigh (strong blue scattering)
+    // gives the clear light-blue sky rather than the milky white of a hazy one.
+    turbidity: 1.8,
+    rayleigh: 3.2,
+    mieCoefficient: 0.004,
     mieDirectionalG: 0.79,
     sunColor: 0xfff2df,
     sunIntensity: 4.3,
@@ -40,11 +42,11 @@ export const PALETTE = {
     hemiIntensity: 0.34,
     ambient: 0x33475a,
     ambientIntensity: 0.07,
-    fogColor: 0xa8c4d6,
+    fogColor: 0xaecfea,
     // Dense enough to fade the surrounds at 10 km while leaving the 2 km of
     // modelled city completely clear.
     fogDensity: 0.00019,
-    waterColor: 0x2c4a58,
+    waterColor: 0x25546e,
     waterAlpha: 0.94,
     waterDistortion: 2.6,
     bloomStrength: 0.16,
@@ -63,16 +65,16 @@ export const PALETTE = {
     mieDirectionalG: 0.86,
     sunColor: 0xb9cbe6,        // moonlight
     sunIntensity: 0.22,
-    hemiSky: 0x0b1626,
-    hemiGround: 0x231a12,      // sodium bounce off the streets
-    hemiIntensity: 0.3,
-    ambient: 0x16202e,
-    ambientIntensity: 0.2,
-    fogColor: 0x0a1220,
+    hemiSky: 0x16294d,         // blue skylight, matching the night dome
+    hemiGround: 0x2b2016,      // sodium bounce off the streets
+    hemiIntensity: 0.42,
+    ambient: 0x1a2a44,
+    ambientIntensity: 0.26,
+    fogColor: 0x0d1a33,
     fogDensity: 0.00028,
-    waterColor: 0x040910,
+    waterColor: 0x0a1f3d,      // deep blue bay rather than black
     waterAlpha: 0.97,
-    waterDistortion: 1.5,
+    waterDistortion: 1.9,
     // Restrained on purpose: tens of thousands of lit windows are emissive, and
     // an aggressive bloom turns the whole skyline into a white haze.
     bloomStrength: 0.42,

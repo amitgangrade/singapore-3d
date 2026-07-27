@@ -128,7 +128,7 @@ async function boot() {
   scene.add(world.water.group);
 
   world.trees = await step(0.76, 'planting the garden city…',
-    () => buildTrees(city, hf, world.index, quality));
+    () => buildTrees(city, hf, world.index, quality, uniforms));
   scene.add(world.trees.group);
 
   world.lights = await step(0.82, 'hanging the street lighting…',
@@ -367,7 +367,7 @@ function animate() {
   uniforms.uTime.value += dt;
 
   ctrl.update(dt);
-  sky.follow(camera);
+  sky.follow(camera, dt);
   updateShadow();
   world.water.update(dt, sky.lightDir, sky.look);
   world.traffic.update(dt);

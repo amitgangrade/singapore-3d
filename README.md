@@ -12,6 +12,7 @@ over it, walk it, or run it, and switch between day and night at any point on a
 
 ![Marina Bay skyline](shots/skyline-day.png)
 ![The same view at night](shots/skyline-night.png)
+![Marina Bay after dark](shots/bay-at-night.png)
 
 ## Running it
 
@@ -87,6 +88,22 @@ A few decisions worth knowing about if you change things:
   light climbs almost vertically at midday and why dusk is short. The "Day"
   preset is mid-afternoon, not noon, because at noon the sun here is within ten
   degrees of vertical and the city has no shadows and no modelling at all.
+- **The daytime sky needs its output scaled down, not its rayleigh turned up.**
+  The atmosphere model returns radiance well above 1.0 and ACES tone mapping
+  compresses all of that to white, so no amount of scattering tuning produces a
+  blue sky — only a brighter white one. Bringing the output back into the tone
+  mapper's colourful range is what makes it read blue.
+- **The night sky is a gradient dome laid over the atmosphere model.** With the
+  sun 50 degrees below the horizon there is nothing left to scatter and the
+  model renders near-black, which is accurate but not what a clear tropical
+  night looks like from a lit city.
+- **Building colour is saturated by inverse height.** Singapore's low-rise
+  really is colourful — the shophouse rows of Chinatown, Kampong Glam and Boat
+  Quay are painted in pastels — while the towers are tinted glass and steel. One
+  saturation for everything gives either a drab city or a cartoon one.
+- **Only water crossings are lit in colour.** OSM tags every road-over-road
+  flyover as a `bridge` too, and the Marina Coastal interchange alone has dozens
+  of them; lighting those buries the skyline in neon lines.
 - **Night windows are procedural, not textured.** Building facade UVs are
   metric — `u` counts window modules around the perimeter, `v` counts storeys —
   so the shader can light a plausible fraction of a plausible grid of windows on
