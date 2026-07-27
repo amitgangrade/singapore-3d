@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Singapore 4 km² — Merlion at Centre</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <!-- Loading -->
+    <div id="loader">
+      <div class="loader-inner">
+        <div class="loader-title">S I N G A P O R E</div>
+        <div class="loader-sub">4 km² around the Merlion · built from OpenStreetMap</div>
+        <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+        <div class="loader-step" id="loaderStep">starting…</div>
+      </div>
+    </div>
+
+    <!-- Head-up display -->
+    <div id="hud" class="hidden">
+      <div id="panel-tl" class="panel">
+        <div class="row big"><span id="hMode">FLY</span><span id="hSpeed">0 km/h</span></div>
+        <div class="row"><span class="k">alt</span><span id="hAlt">—</span></div>
+        <div class="row"><span class="k">pos</span><span id="hLatLon">—</span></div>
+        <div class="row"><span class="k">near</span><span id="hNear">—</span></div>
+        <div id="compass">
+          <div id="compassStrip"></div>
+          <div id="compassNeedle"></div>
+        </div>
+      </div>
+
+      <div id="panel-tr" class="panel">
+        <div class="row title">TIME <span id="hClock">16:12</span></div>
+        <input type="range" id="timeSlider" min="0" max="1440" step="5" value="972" />
+        <div class="btnrow">
+          <button id="btnDay" class="on">Day</button>
+          <button id="btnNight">Night</button>
+        </div>
+        <div class="row title">QUALITY</div>
+        <select id="quality">
+          <option value="ultra">Ultra</option>
+          <option value="high" selected>High</option>
+          <option value="medium">Medium</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="cbReflect" checked /> Water reflections</label>
+        <label class="chk"><input type="checkbox" id="cbShadow" checked /> Shadows</label>
+        <label class="chk"><input type="checkbox" id="cbLabels" checked /> Place labels</label>
+        <div class="row title">GO TO</div>
+        <select id="teleport">
+          <option value="">— jump to —</option>
+        </select>
+        <div class="fps"><span id="hFps">— fps</span><span id="hTris"></span></div>
+      </div>
+
+      <div id="crosshair"></div>
+
+      <div id="help" class="panel">
+        <div class="row title">CONTROLS <span class="dim">(H to hide)</span></div>
+        <div class="keys">
+          <b>Click</b> capture mouse · <b>Esc</b> release
+          <b>W A S D</b> move · <b>Mouse</b> look
+          <b>Shift</b> boost / run · <b>Space</b> up / jump
+          <b>Ctrl</b> down · <b>Wheel</b> fly speed
+          <b>F</b> fly ⇄ ground · <b>T</b> day ⇄ night
+          <b>R</b> reset to Merlion · <b>H</b> this panel
+        </div>
+      </div>
+
+      <div id="toast"></div>
+      <div id="labels"></div>
+      <div id="attrib">Geometry © OpenStreetMap contributors (ODbL)</div>
+    </div>
+
+    <div id="clickToStart" class="hidden"><div>click to look around</div></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

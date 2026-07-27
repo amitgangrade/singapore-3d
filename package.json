@@ -1,0 +1,19 @@
+{
+  "name": "citymap-singapore",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Explorable 3D model of central Singapore (4 km^2 around the Merlion) built from OpenStreetMap data",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "data": "node tools/convert-osm.mjs data/osm_raw.json public/data/city.json"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
