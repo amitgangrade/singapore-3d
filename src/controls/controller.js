@@ -3,6 +3,7 @@ import {
   MOVE, GRAVITY, JUMP_V, PLAYER_RADIUS, STEP_UP, WATER_Y, HALF, START,
 } from '../config.js';
 import { clamp } from '../core/util.js';
+import { HAS_POINTER_LOCK } from '../core/device.js';
 
 /**
  * Movement. Two modes share one camera:
@@ -32,6 +33,12 @@ export class Controller {
     this.sensitivity = 0.0021;
 
     this.keys = new Set();
+    /**
+     * Movement request for this frame, in the -1..1 range on each axis. The
+     * keyboard fills it from key state and the touch controls add to it, so
+     * both paths drive exactly the same movement code.
+     */
+    this.touch = { forward: 0, strafe: 0, up: 0, run: false, jump: false };
     this._push = { x: 0, z: 0, top: 0 };
     this._fwd = new THREE.Vector3();
     this._right = new THREE.Vector3();
@@ -79,7 +86,14 @@ export class Controller {
   }
 
   requestLock() {
+    if (!HAS_POINTER_LOCK) return;
     this.dom.requestPointerLock?.();
+  }
+
+  /** Rotate the view by a screen-space delta. Used by the touch look drag. */
+  look(dx, dy) {
+    this.yaw -= dx;
+    this.pitch = clamp(this.pitch - dy, -1.54, 1.54);
   }
 
   dispose() {
@@ -145,7 +159,7 @@ export class Controller {
     const ground = this.mode === 'ground';
     const profile = ground ? MOVE.walk : MOVE.fly;
 
-    this.running = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+    this.running = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || this.touch.run;
 
     // Facing vectors.
     const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
@@ -153,15 +167,22 @@ export class Controller {
     this._fwd.set(-sy * cp, sp, -cy * cp).normalize();
     this._right.set(cy, 0, -sy).normalize();
 
-    // Desired direction.
+    // Desired direction. Keyboard and touch are summed onto the same axes.
+    let forward = this.touch.forward;
+    let strafe = this.touch.strafe;
+    if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) forward += 1;
+    if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) forward -= 1;
+    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) strafe += 1;
+    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) strafe -= 1;
+    forward = clamp(forward, -1, 1);
+    strafe = clamp(strafe, -1, 1);
+
     const wish = this._wish.set(0, 0, 0);
     // On foot you walk where you are facing horizontally; in the air you fly
     // where you are looking, pitch included.
     const f = ground ? this._flat.set(-sy, 0, -cy) : this._fwd;
-    if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) wish.add(f);
-    if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) wish.sub(f);
-    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) wish.add(this._right);
-    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) wish.sub(this._right);
+    wish.addScaledVector(f, forward);
+    wish.addScaledVector(this._right, strafe);
 
     if (ground) {
       wish.y = 0;
@@ -181,7 +202,7 @@ export class Controller {
         this.vel.z = (this.vel.z / hs) * maxSpeed;
       }
 
-      if (this.keys.has('Space') && this.onGround) {
+      if ((this.keys.has('Space') || this.touch.jump) && this.onGround) {
         this.vel.y = JUMP_V;
         this.onGround = false;
       }
@@ -189,8 +210,10 @@ export class Controller {
 
       this._moveGround(dt);
     } else {
+      wish.y += this.touch.up;
       if (this.keys.has('Space')) wish.y += 1;
       if (this.keys.has('ControlLeft') || this.keys.has('ControlRight')) wish.y -= 1;
+      wish.y = clamp(wish.y, -1, 1);
       if (wish.lengthSq() > 0) wish.normalize();
       const boost = this.running ? MOVE.fly.boost : 1;
       const accel = MOVE.fly.accel * this.flySpeedScale * boost;

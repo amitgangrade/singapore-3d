@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#05080c" />
     <title>Singapore 4 km² — Merlion at Centre</title>
     <link rel="icon" href="data:," />
   </head>
@@ -44,6 +48,7 @@
           <option value="ultra">Ultra</option>
           <option value="high" selected>High</option>
           <option value="medium">Medium</option>
+          <option value="phone">Phone</option>
         </select>
         <label class="chk"><input type="checkbox" id="cbReflect" checked /> Water reflections</label>
         <label class="chk"><input type="checkbox" id="cbShadow" checked /> Shadows</label>
@@ -72,6 +77,18 @@
       <div id="toast"></div>
       <div id="labels"></div>
       <div id="attrib">Geometry © OpenStreetMap contributors (ODbL)</div>
+
+      <!-- On-screen controls, shown only when the primary input is touch -->
+      <div id="touchUI" class="hidden">
+        <div id="stick"><div id="stickKnob"></div></div>
+        <div id="touchBtns">
+          <button id="tbUp" class="tbtn" aria-label="Ascend or jump">▲</button>
+          <button id="tbDown" class="tbtn" aria-label="Descend">▼</button>
+          <button id="tbMode" class="tbtn wide" aria-label="Fly or walk">FLY</button>
+        </div>
+        <button id="tbMenu" class="tbtn" aria-label="Settings">☰</button>
+        <button id="tbTime" class="tbtn" aria-label="Day or night">☾</button>
+      </div>
     </div>
 
     <div id="clickToStart" class="hidden"><div>click to look around</div></div>

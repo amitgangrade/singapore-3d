@@ -125,11 +125,28 @@ export const GREEN_STYLE = {
   pitch:  { color: 0x4a7a48, trees: 0 },
 };
 
-/** Quality presets. */
+/**
+ * Quality presets. `treeScatter`, `lampStep` and `reflectRes` are baked when the
+ * world is built, so changing preset at runtime only moves shadows, pixel ratio
+ * and shadow span — the rest applies on reload.
+ *
+ * `phone` is picked automatically on touch devices: the mirror pass for the
+ * water reflections is the single most expensive thing in the frame, so it is
+ * cut hardest there.
+ */
 export const QUALITY = {
   ultra:  { shadowMap: 4096, shadowSpan: 420, reflectRes: 1024, pixelRatio: 1.6, treeScatter: 1.0, lampStep: 34, aa: 4 },
   high:   { shadowMap: 2048, shadowSpan: 340, reflectRes: 512,  pixelRatio: 1.25, treeScatter: 0.7, lampStep: 44, aa: 4 },
   medium: { shadowMap: 1024, shadowSpan: 250, reflectRes: 256,  pixelRatio: 1.0, treeScatter: 0.35, lampStep: 70, aa: 0 },
+  phone:  { shadowMap: 1024, shadowSpan: 190, reflectRes: 128,  pixelRatio: 0.85, treeScatter: 0.2, lampStep: 95, aa: 0 },
+};
+
+/** Touch look and movement tuning. */
+export const TOUCH = {
+  lookSpeed: 0.0034,      // radians per CSS pixel dragged
+  stickRadius: 52,        // px travel before the stick reads full deflection
+  runThreshold: 0.82,     // stick deflection at which walking becomes running
+  pinchSpeed: 0.9,        // fly-speed change per unit of pinch scale
 };
 
 /**

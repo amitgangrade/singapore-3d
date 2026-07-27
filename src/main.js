@@ -17,6 +17,8 @@ import { buildTraffic } from './world/traffic.js';
 import { buildFountainShow } from './world/fountain.js';
 import { buildLandmarks, REPLACED_BY_LANDMARK } from './world/landmarks.js';
 import { Controller } from './controls/controller.js';
+import { TouchControls } from './controls/touch.js';
+import { IS_TOUCH } from './core/device.js';
 import { Hud } from './ui/hud.js';
 import { LabelLayer } from './ui/labels.js';
 import { clamp, lerp } from './core/util.js';
@@ -41,7 +43,14 @@ renderer.toneMappingExposure = 1;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-let quality = QUALITY.high;
+/*
+ * Quality is chosen before the world is built, because tree density, street
+ * lamp spacing and the water reflection resolution are all baked at build time.
+ * Touch devices get the phone preset automatically — the mirror pass for the
+ * reflections is by far the most expensive thing in the frame on a handset.
+ */
+let quality = IS_TOUCH ? QUALITY.phone : QUALITY.high;
+if (IS_TOUCH) document.documentElement.classList.add('touch');
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 
@@ -71,7 +80,7 @@ const uniforms = makeCityUniforms();
 // ------------------------------------------------------------------- boot -----
 const hud = new Hud({});
 const world = {};
-let sky, post, ctrl, labels;
+let sky, post, ctrl, labels, touch;
 let hours = DAY_HOUR;
 let targetHours = DAY_HOUR;
 let transition = 0;          // seconds remaining in a day/night fade
@@ -171,6 +180,8 @@ async function boot() {
     });
 
     wireHud();
+    if (IS_TOUCH) wireTouch();
+    onResize();
     applyTime(hours, true);
   });
 
@@ -189,7 +200,7 @@ async function boot() {
   // Handle for debugging and for the screenshot tool in tools/shoot.mjs.
   window.city = {
     THREE, renderer, scene, camera, sun, hemi, ambient, uniforms,
-    sky, post, ctrl, hud, labels, world, applyTime,
+    sky, post, ctrl, hud, labels, world, applyTime, touch, isTouch: IS_TOUCH,
     setTime(h) { hours = h; targetHours = h; transition = 0; applyTime(h, true); },
     ready: true,
   };
@@ -254,6 +265,7 @@ function wireHud() {
   hud.h.onLabels = (on) => labels.setEnabled(on);
   hud.h.onTeleport = (place) => {
     ctrl.teleport(place);
+    touch?.syncMode();
     hud.toast(place.name);
   };
   hud.h.onQuality = (name) => {
@@ -271,6 +283,7 @@ function wireHud() {
     switch (e.code) {
       case 'KeyF':
         ctrl.setMode(ctrl.mode === 'fly' ? 'ground' : 'fly');
+        touch?.syncMode();
         hud.toast(ctrl.mode === 'fly' ? 'flying' : 'on foot — hold Shift to run');
         break;
       case 'KeyT':
@@ -291,6 +304,37 @@ function wireHud() {
   const lock = () => { if (!ctrl.locked) ctrl.requestLock(); };
   canvas.addEventListener('click', lock);
   document.querySelector('#clickToStart div')?.addEventListener('click', lock);
+}
+
+/** On-screen controls, plus the two compact buttons that replace the panels. */
+function wireTouch() {
+  const el = (id) => document.getElementById(id);
+  el('touchUI')?.classList.remove('hidden');
+  // The settings panel is a drawer on a phone; there is no room for it always-on.
+  const panel = el('panel-tr');
+  panel?.classList.add('hidden');
+
+  touch = new TouchControls(ctrl, canvas, {
+    stick: el('stick'),
+    knob: el('stickKnob'),
+    mode: el('tbMode'),
+    up: el('tbUp'),
+    down: el('tbDown'),
+  });
+  touch.onModeChange = (mode) => {
+    hud.toast(mode === 'fly' ? 'flying — pinch to change speed' : 'on foot — push the stick fully to run');
+  };
+
+  el('tbMenu')?.addEventListener('click', () => panel?.classList.toggle('hidden'));
+  el('tbTime')?.addEventListener('click', () => {
+    const toNight = sky.nightT <= 0.5;
+    setPreset(toNight ? 'night' : 'day');
+    el('tbTime').textContent = toNight ? '☀' : '☾';
+  });
+
+  // The quality dropdown reflects what was actually selected at startup.
+  hud.el.quality.value = 'phone';
+  hud.toast('drag to look · left stick to move · ☰ for settings', 4200);
 }
 
 function setPreset(which) {
@@ -345,9 +389,27 @@ function updateShadow() {
 }
 
 // ------------------------------------------------------------------- resize ---
+/**
+ * three's `fov` is vertical, so a portrait phone would get a ~33 degree
+ * horizontal field of view — a telephoto view of a city you are trying to
+ * explore. Hold the horizontal field constant instead and let the vertical
+ * follow, which keeps framing consistent from a wide desktop window to a
+ * portrait handset.
+ */
+const H_FOV = 76;
+function fovForAspect(aspect) {
+  if (aspect >= 1.35) return 64;
+  const half = Math.atan(Math.tan((H_FOV * Math.PI) / 360) / aspect);
+  // Capped well below what preserving the horizontal field would demand: a
+  // portrait phone would need about 120 degrees vertical, which is a fisheye.
+  // Some horizontal narrowing is the better trade.
+  return clamp((half * 360) / Math.PI, 64, 90);
+}
+
 function onResize() {
   const w = window.innerWidth, h = window.innerHeight;
   camera.aspect = w / h;
+  camera.fov = fovForAspect(camera.aspect);
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
   post?.resize(w, h);

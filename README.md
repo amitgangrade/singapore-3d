@@ -42,6 +42,26 @@ Then open the URL Vite prints. Click the canvas to capture the mouse.
 | **R** | back to the opening view |
 | **H** | show or hide the controls panel |
 
+## On a phone or tablet
+
+Touch controls appear automatically — detected from the pointer type, not the
+user agent, so a touchscreen laptop keeps the desktop controls.
+
+| | |
+|---|---|
+| **Drag anywhere** | look around |
+| **Left thumbstick** | move — push it all the way to run or boost |
+| **▲ / ▼** | ascend and descend, or jump on foot |
+| **FLY / WALK** | switch between flying and on foot |
+| **Pinch** | fly speed |
+| **☾ / ☀** | day ⇄ night |
+| **☰** | settings, quality and the Go to list |
+
+Touch devices load the **Phone** quality preset automatically, which cuts the
+water reflection resolution hardest — the mirror pass is the most expensive
+thing in the frame on a handset. You can raise it from the ☰ menu, though tree
+density and reflection resolution only change on reload.
+
 The panel on the right has a continuous time-of-day slider, a quality preset,
 toggles for water reflections / shadows / place labels, and a **Go to** list that
 jumps to the Merlion, Marina Bay Sands, Gardens by the Bay, Raffles Place, the

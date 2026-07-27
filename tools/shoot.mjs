@@ -96,6 +96,18 @@ async function main() {
 
   await send('Page.enable');
   await send('Runtime.enable');
+
+  // CITY_MOBILE=1 emulates a handset: device metrics plus real touch support,
+  // so `(pointer: coarse)` matches and the on-screen controls engage.
+  if (process.env.CITY_MOBILE) {
+    const [w, h] = (process.env.CITY_MOBILE_SIZE ?? '390x844').split('x').map(Number);
+    await send('Emulation.setDeviceMetricsOverride', {
+      width: w, height: h, deviceScaleFactor: 3, mobile: true,
+    });
+    await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    await send('Emulation.setEmitTouchEventsForMouse', { enabled: true, configuration: 'mobile' });
+  }
+
   await send('Page.navigate', { url: URL_BASE });
 
   // Wait for the world to finish building.
